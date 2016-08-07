@@ -19,8 +19,9 @@ public abstract class HttpConfigurator implements InitializingBean, ApplicationC
 
     protected Protocol protocol;
     protected String contentType;
-    protected String charSet;
+    protected String charset;
     protected RequestMethod requestMethod;
+    protected int connectionTime = -1;
 
     protected ApplicationContext applicationContext;
 
@@ -29,7 +30,7 @@ public abstract class HttpConfigurator implements InitializingBean, ApplicationC
 
         Assert.notNull(protocol, "Protocol is required");
         Assert.notNull(contentType, "contentType is required");
-        Assert.notNull(charSet, "charSet is required");
+        Assert.notNull(charset, "charset is required");
         Assert.notNull(requestMethod, "RequestMethod is required");
     }
 
@@ -49,7 +50,7 @@ public abstract class HttpConfigurator implements InitializingBean, ApplicationC
     private void initDefaultConfig() {
         this.protocol = Protocol.HTTP;
         this.contentType = "application/json";
-        this.charSet = "UTF-8";
+        this.charset = "UTF-8";
         this.requestMethod = RequestMethod.POST;
     }
 

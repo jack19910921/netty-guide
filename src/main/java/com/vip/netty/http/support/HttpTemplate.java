@@ -13,14 +13,19 @@ import com.vip.netty.http.support.enums.RequestMethod;
 import com.vip.netty.http.support.exception.HttpException;
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * Created by jack on 16/7/29.
@@ -35,7 +40,7 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
     private HttpTemplate(Builder builder) {
         this.protocol = builder.protocol;
         this.contentType = builder.contentType;
-        this.charSet = builder.charSet;
+        this.charset = builder.charset;
         this.requestMethod = builder.requestMethod;
     }
 
@@ -77,7 +82,7 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
 
             //3.consume response
             HttpEntity entity = response.getEntity();
-            String result = EntityUtils.toString(entity, charSet);
+            String result = EntityUtils.toString(entity, charset);
 
             //4.invoke callback
             return action.doParseResult(result);
@@ -133,14 +138,14 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
         }
 
         if (requestParams.size() > 0) {
-            UrlEncodedFormEntity uefEntity = new UrlEncodedFormEntity(requestParams, charSet);
+            UrlEncodedFormEntity uefEntity = new UrlEncodedFormEntity(requestParams, charset);
             httppost.setEntity(uefEntity);
         }
 
         return httpclient.execute(httppost);
     }
 
-    private CloseableHttpClient newHttpClient(Protocol protocol) {
+    private CloseableHttpClient newHttpClient(Protocol protocol) throws Exception {
         if (protocol == Protocol.HTTP) {
             return HttpClients.createDefault();
         } else {
@@ -148,15 +153,27 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
         }
     }
 
-    private CloseableHttpClient newHttpsClient() {
-        return null;
+    private CloseableHttpClient newHttpsClient() throws Exception {
+        X509TrustManager x509mgr = HttpsSupport.newX509TrustManager();
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setSocketTimeout(connectionTime)
+                .setConnectTimeout(connectionTime)
+                .build();
+
+        SSLContext sslContext = HttpsSupport.newSSLContext(x509mgr);
+        SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslContext, SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+
+        return HttpClients.custom()
+                .setSSLSocketFactory(sslsf)
+                .setDefaultRequestConfig(requestConfig)
+                .build();
     }
 
     public static final class Builder {
 
         Protocol protocol = Protocol.HTTP;
         String contentType = "application/json";
-        String charSet = "UTF-8";
+        String charset = "UTF-8";
         RequestMethod requestMethod = RequestMethod.POST;
 
         public Builder protocol(Protocol protocol) {
@@ -170,7 +187,7 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
         }
 
         public Builder charSet(String charSet) {
-            this.charSet = charSet;
+            this.charset = charSet;
             return this;
         }
 

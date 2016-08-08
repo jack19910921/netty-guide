@@ -2,16 +2,20 @@ package com.vip.netty.http.support;
 
 import java.io.IOException;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.vip.netty.http.support.enums.Order;
 import com.vip.netty.http.support.enums.Protocol;
 import com.vip.netty.http.support.enums.RequestMethod;
 import com.vip.netty.http.support.enums.error.HttpErrorEnum;
 import com.vip.netty.http.support.exception.HttpException;
 import com.vip.netty.http.support.util.ReflectUtils;
+import com.vip.netty.http.support.util.SignUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -44,6 +48,7 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
         this.contentType = builder.contentType;
         this.charset = builder.charset;
         this.requestMethod = builder.requestMethod;
+        this.order = builder.order;
     }
 
     public <T> T doPost(String url, Map<String, String> params, HttpCallback<T> action)
@@ -76,13 +81,16 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
         CloseableHttpResponse response = null;
 
         try {
-            //1.create http or https client
+            //1.sort params and build sign
+            Map<String, String> sortedMapWithSign = this.sign(params, order, charset);
+
+            //2.create http or https client
             httpclient = this.newHttpClient(protocol);
 
-            //2.send request
-            response = this.doExecute(httpclient, url, params, method);
+            //3.send request
+            response = this.doExecute(httpclient, url, sortedMapWithSign, method);
 
-            //3.consume response
+            //4.consume response
             if (response == null || response.getEntity() == null) {
                 throw new HttpException(HttpErrorEnum.RESPONSE_IS_EMPTY.getErrorCode(),
                         HttpErrorEnum.RESPONSE_IS_EMPTY.getErrorMessage());
@@ -96,7 +104,7 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
             HttpEntity entity = response.getEntity();
             String result = EntityUtils.toString(entity, charset);
 
-            //4.invoke callback
+            //5.invoke callback
             return action.doParseResult(result);
 
         } catch (Exception e) {
@@ -114,6 +122,26 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
                         HttpErrorEnum.CLOSE_CHANNEL_ERROR.getErrorMessage());
             }
         }
+    }
+
+    private Map<String, String> sign(Map<String, String> params, final Order order, String charset) {
+        Map<String, String> map = params;
+
+        if (order != Order.IMMUTABLE) {
+            map = Maps.newTreeMap(new Comparator<String>() {
+
+                @Override
+                public int compare(String o1, String o2) {
+                    if (order == Order.ASC) {
+                        return o1.compareTo(o2);
+                    } else {
+                        return o2.compareTo(o1);
+                    }
+                }
+            });
+        }
+
+        return SignUtil.sign(map, charset);
     }
 
     private CloseableHttpResponse doExecute(CloseableHttpClient httpclient, String url, Map<String, String> params, RequestMethod method)
@@ -182,6 +210,7 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
         String contentType = "application/json";
         String charset = "UTF-8";
         RequestMethod requestMethod = RequestMethod.POST;
+        Order order = Order.ASC;
 
         public Builder protocol(Protocol protocol) {
             this.protocol = protocol;
@@ -200,6 +229,11 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
 
         public Builder requestMethod(RequestMethod requestMethod) {
             this.requestMethod = requestMethod;
+            return this;
+        }
+
+        public Builder order(Order order) {
+            this.order = order;
             return this;
         }
 

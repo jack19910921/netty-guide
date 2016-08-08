@@ -13,7 +13,6 @@ import java.beans.*;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
@@ -129,13 +128,7 @@ public class ReflectUtils {
 
     public static Map<String, String> convertJavaBean2Map(Object o) throws HttpException {
 
-        Map<String, String> map = Maps.newTreeMap(new Comparator<String>() {
-
-            @Override
-            public int compare(String o1, String o2) {
-                return o1.compareTo(o2);
-            }
-        });
+        Map<String, String> map = Maps.newHashMap();
 
         try {
             BeanInfo beanInfo = Introspector.getBeanInfo(o.getClass());

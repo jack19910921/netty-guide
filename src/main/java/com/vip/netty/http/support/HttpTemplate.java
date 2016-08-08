@@ -2,16 +2,18 @@ package com.vip.netty.http.support;
 
 import java.io.IOException;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.google.common.collect.Lists;
 import com.vip.netty.http.support.enums.Protocol;
 import com.vip.netty.http.support.enums.RequestMethod;
+import com.vip.netty.http.support.enums.error.HttpErrorEnum;
 import com.vip.netty.http.support.exception.HttpException;
 import com.vip.netty.http.support.util.ReflectUtils;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -81,6 +83,16 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
             response = this.doExecute(httpclient, url, params, method);
 
             //3.consume response
+            if (response == null || response.getEntity() == null) {
+                throw new HttpException(HttpErrorEnum.RESPONSE_IS_EMPTY.getErrorCode(),
+                        HttpErrorEnum.RESPONSE_IS_EMPTY.getErrorMessage());
+            }
+
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new HttpException(HttpErrorEnum.RESPONSE_STATUS_CODE_INVALID.getErrorCode(),
+                        HttpErrorEnum.RESPONSE_STATUS_CODE_INVALID.getErrorMessage());
+            }
+
             HttpEntity entity = response.getEntity();
             String result = EntityUtils.toString(entity, charset);
 
@@ -88,61 +100,56 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
             return action.doParseResult(result);
 
         } catch (Exception e) {
-            //错误码幂等
-            if (e instanceof NullPointerException) {
-                //TODO
-                throw new HttpException();
-            }
             if (e instanceof HttpException) {
                 throw (HttpException) e;
             }
-
-            e.printStackTrace();
-            throw new HttpException();//TODO
+            throw new HttpException(HttpErrorEnum.SYSTEM_INTERNAL_ERROR.getErrorCode(),
+                    HttpErrorEnum.SYSTEM_INTERNAL_ERROR.getErrorMessage());
         } finally {
             try {
                 if (response != null) response.close();
                 if (httpclient != null) httpclient.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new HttpException(HttpErrorEnum.CLOSE_CHANNEL_ERROR.getErrorCode(),
+                        HttpErrorEnum.CLOSE_CHANNEL_ERROR.getErrorMessage());
             }
         }
     }
 
     private CloseableHttpResponse doExecute(CloseableHttpClient httpclient, String url, Map<String, String> params, RequestMethod method)
             throws Exception {
-
         if (method == RequestMethod.POST) {
             return doPostInternal(httpclient, url, params);
         } else if (method == RequestMethod.GET) {
             return doGetInternal(httpclient, url);
         }
 
-        throw new UnsupportedOperationException("不支持的RequestMethod");
+        throw new HttpException(HttpErrorEnum.UNSUPPORTED_REQUEST_METHOD.getErrorCode(),
+                HttpErrorEnum.UNSUPPORTED_REQUEST_METHOD.getErrorMessage());
     }
 
     private CloseableHttpResponse doGetInternal(CloseableHttpClient httpclient, String url)
             throws Exception {
-        HttpGet httpget = new HttpGet(url);
+        HttpGet httpGet = new HttpGet(url);
 
-        return httpclient.execute(httpget);
+        return httpclient.execute(httpGet);
     }
 
     private CloseableHttpResponse doPostInternal(CloseableHttpClient httpclient, String url, Map<String, String> params)
             throws Exception {
-        HttpPost httppost = new HttpPost(url);
+        HttpPost httpPost = new HttpPost(url);
 
-        List<NameValuePair> requestParams = new ArrayList<>();
+        List<NameValuePair> requestParams = Lists.newArrayList();
         for (Entry<String, String> entry : params.entrySet()) {
             requestParams.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
         }
 
         if (requestParams.size() > 0) {
             UrlEncodedFormEntity uefEntity = new UrlEncodedFormEntity(requestParams, charset);
-            httppost.setEntity(uefEntity);
+            httpPost.setEntity(uefEntity);
         }
 
-        return httpclient.execute(httppost);
+        return httpclient.execute(httpPost);
     }
 
     private CloseableHttpClient newHttpClient(Protocol protocol) throws Exception {

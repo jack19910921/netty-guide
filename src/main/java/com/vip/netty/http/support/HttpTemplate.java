@@ -3,7 +3,6 @@ package com.vip.netty.http.support;
 import java.io.IOException;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -11,6 +10,7 @@ import java.util.Map.Entry;
 import com.vip.netty.http.support.enums.Protocol;
 import com.vip.netty.http.support.enums.RequestMethod;
 import com.vip.netty.http.support.exception.HttpException;
+import com.vip.netty.http.support.util.ReflectUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
@@ -62,8 +62,8 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
 
     public <T> T execute(String url, Object params, RequestMethod method, HttpCallback<T> action)
             throws HttpException {
-        //convert DTO to Map
-        Map<String, String> map = new HashMap<>();
+
+        Map<String, String> map = ReflectUtils.convertJavaBean2Map(params);
 
         return this.execute(url, map, method, action);
     }

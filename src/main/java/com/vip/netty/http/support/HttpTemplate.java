@@ -125,10 +125,12 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
     }
 
     private Map<String, String> sign(Map<String, String> params, final Order order, String charset) {
-        Map<String, String> map = params;
+        Map<String, String> map = Maps.newLinkedHashMap();
 
-        if (order != Order.IMMUTABLE) {
-            map = Maps.newTreeMap(new Comparator<String>() {
+        if (order == Order.IMMUTABLE) {
+            map.putAll(params);
+        } else {
+            Map<String, String> treeMap = Maps.newTreeMap(new Comparator<String>() {
 
                 @Override
                 public int compare(String o1, String o2) {
@@ -139,9 +141,13 @@ public class HttpTemplate extends HttpConfigurator implements HttpOperations {
                     }
                 }
             });
+            map.putAll(treeMap);
         }
 
-        return SignUtil.sign(map, charset);
+        String sign = SignUtil.sign(map, charset);
+        map.put("sign", sign);// TODO: 16/8/9  
+        
+        return map;
     }
 
     private CloseableHttpResponse doExecute(CloseableHttpClient httpclient, String url, Map<String, String> params, RequestMethod method)

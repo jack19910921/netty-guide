@@ -7,7 +7,8 @@ import java.util.Map;
  */
 public class SignUtil {
 
-    public static Map<String, String> sign(Map<String, String> map, String charset) {
-        return map;// TODO: 16/8/9
+    public static String sign(Map<String, String> map, String charset) {
+        String sign = "";
+        return sign;// TODO: 16/8/9
     }
 }
